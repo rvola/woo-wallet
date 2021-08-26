@@ -12,6 +12,8 @@
  * WC requires at least: 3.0
  * WC tested up to: 5.4
  * 
+ * GitHub Plugin URI: https://github.com/rvola/woo-wallet
+ * Update URI: https://github.com/rvola/woo-wallet
  * Text Domain: woo-wallet
  * Domain Path: /languages/
  *
