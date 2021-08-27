@@ -74,11 +74,16 @@ if(!function_exists('get_woo_wallet_cart_fee_total')){
         $fee_amount = 0;
         $fees = wc()->cart->get_fees();
         if($fees){
-            foreach ($fees as $fee_key => $fee){
-                if('_via_wallet_partial_payment' != $fee_key){
-                    $fee_amount += $fee->amount;
-                }
-            }
+	        foreach ( $fees as $fee_key => $fee ) {
+		        if ( '_via_wallet_partial_payment' != $fee_key ) {
+			        $fee_amount += $fee->amount;
+			        if ( $fee->tax_data ) {
+				        foreach ( $fee->tax_data as $tax ) {
+					        $fee_amount += $tax;
+				        }
+			        }
+		        }
+	        }
         }
         return $fee_amount;
     }
