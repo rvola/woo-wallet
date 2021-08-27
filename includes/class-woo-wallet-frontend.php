@@ -62,7 +62,7 @@ if (!class_exists('Woo_Wallet_Frontend')) {
             add_shortcode('woo-wallet', __CLASS__ . '::woo_wallet_shortcode_callback');
             add_shortcode('mini-wallet', __CLASS__ . '::mini_wallet_shortcode_callback');
             add_action('woocommerce_cart_calculate_fees', array($this, 'woo_wallet_add_partial_payment_fee'));
-            add_filter('woocommerce_cart_totals_get_fees_from_cart_taxes', array($this, 'woocommerce_cart_totals_get_fees_from_cart_taxes'), 10, 2);
+//            add_filter('woocommerce_cart_totals_get_fees_from_cart_taxes', array($this, 'woocommerce_cart_totals_get_fees_from_cart_taxes'), 10, 2);
             add_action('woocommerce_thankyou', array($this, 'restore_woocommerce_cart_items'));
             add_filter('woo_wallet_is_enable_transfer', array($this, 'woo_wallet_is_enable_transfer'));
             
