@@ -164,7 +164,7 @@ if (!class_exists('Woo_Wallet_Cashback')) {
                     if (woo_wallet()->settings_api->get_option('min_cart_amount', '_wallet_settings_credit', 10) != 0 && $order->get_total('edit') >= woo_wallet()->settings_api->get_option('min_cart_amount', '_wallet_settings_credit', 0)) {
                         if ('percent' === self::$global_cashbak_type) {
                             $total = apply_filters('woo_wallet_calculate_cashback_on_total', true) ? $order->get_total('edit') : $order->get_subtotal();
-                            $percent_cashback_amount = ($order->get_total('edit') * self::$global_cashbak_amount) / 100;
+                            $percent_cashback_amount = ($total * self::$global_cashbak_amount) / 100;
                             if (self::$max_cashbak_amount && $percent_cashback_amount > self::$max_cashbak_amount) {
                                 $cashback_amount += self::$max_cashbak_amount;
                             } else {
@@ -190,6 +190,9 @@ if (!class_exists('Woo_Wallet_Cashback')) {
         public static function get_product_cashback_amount($product, $qty = 1, $product_price = 0) {
             self::init_cashback_settings();
             $cashback_amount = 0;
+            if(!$product){
+                return $cashback_amount;
+            }
             $product_wise_cashback_type = get_post_meta($product->get_id(), '_cashback_type', true);
             $product_wise_cashback_amount = get_post_meta($product->get_id(), '_cashback_amount', true) ? floatval(get_post_meta($product->get_id(), '_cashback_amount', true)) : 0;
             if(!$product_price){

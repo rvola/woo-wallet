@@ -128,7 +128,7 @@ if ( ! class_exists( 'Woo_Wallet_Admin' ) ) {
          */
         public function add_wallet_topup_report() {
             if (current_user_can('view_woocommerce_reports')) {
-                $wallet_recharge_order_ids = get_wallet_rechargeable_orders( array( 'date_query' => array( 'after' => strtotime( date( 'Y-m-01', current_time( 'timestamp' ) ) ) ) ) );
+                $wallet_recharge_order_ids = get_wallet_rechargeable_orders( array( 'date_query' => array( 'after' => date('Y-m-01') ) ) );
                 $top_up_amount = 0;
                 foreach ($wallet_recharge_order_ids as $order_id){
                     $order = wc_get_order($order_id);
@@ -203,7 +203,7 @@ if ( ! class_exists( 'Woo_Wallet_Admin' ) ) {
          * init admin menu
          */
         public function admin_menu() {
-            $woo_wallet_menu_page_hook = add_menu_page( 'TeraWallet', 'TeraWallet', get_wallet_user_capability(), 'woo-wallet', array( $this, 'wallet_page' ), '', 59);
+            $woo_wallet_menu_page_hook = add_menu_page( __('TeraWallet', 'woo-wallet'), __('TeraWallet', 'woo-wallet'), get_wallet_user_capability(), 'woo-wallet', array( $this, 'wallet_page' ), '', 59);
             add_action( "load-$woo_wallet_menu_page_hook", array( $this, 'add_woo_wallet_details' ) );
             $woo_wallet_menu_page_hook_add = add_submenu_page( '', __( 'Woo Wallet', 'woo-wallet' ), __( 'Woo Wallet', 'woo-wallet' ), get_wallet_user_capability(), 'woo-wallet-add', array( $this, 'add_balance_to_user_wallet' ) );
             add_action( "load-$woo_wallet_menu_page_hook_add", array( $this, 'add_woo_wallet_add_balance_option' ) );
@@ -224,7 +224,8 @@ if ( ! class_exists( 'Woo_Wallet_Admin' ) ) {
         public function plugin_actions_page() {
             $screen = get_current_screen();
             $wallet_actions = new WOO_Wallet_Actions();
-            if ( in_array($screen->id, array('woowallet_page_woo-wallet-actions', 'terawallet_page_woo-wallet-actions')) && isset( $_GET['action'] ) && isset( $wallet_actions->actions[$_GET['action']] ) ) {
+            $woo_wallet_screen_id = sanitize_title( __( 'TeraWallet', 'woo-wallet' ) );
+            if ( in_array($screen->id, array( "{$woo_wallet_screen_id}_page_woo-wallet-actions")) && isset( $_GET['action'] ) && isset( $wallet_actions->actions[$_GET['action']] ) ) {
                 $this->display_action_settings();
             } else {
                 $this->display_actions_table();
@@ -701,7 +702,8 @@ if ( ! class_exists( 'Woo_Wallet_Admin' ) ) {
                 return $footer_text;
             }
             $current_screen = get_current_screen();
-            $woo_wallet_pages = array( 'toplevel_page_woo-wallet', 'admin_page_woo-wallet-add', 'admin_page_woo-wallet-transactions', 'woowallet_page_woo-wallet-settings', 'woowallet_page_woo-wallet-actions', 'woowallet_page_woo-wallet-extensions', 'terawallet_page_woo-wallet-settings' );
+            $woo_wallet_settings_screen_id = sanitize_title( __( 'TeraWallet', 'woo-wallet' ) );
+            $woo_wallet_pages = array( 'toplevel_page_woo-wallet', 'admin_page_woo-wallet-add', 'admin_page_woo-wallet-transactions', "{$woo_wallet_settings_screen_id}_page_woo-wallet-actions", "{$woo_wallet_settings_screen_id}_page_woo-wallet-extensions", "{$woo_wallet_settings_screen_id}_page_woo-wallet-settings" );
             if ( isset( $current_screen->id ) && in_array( $current_screen->id, $woo_wallet_pages) ) {
                 if ( !get_option( 'woocommerce_wallet_admin_footer_text_rated' ) ) {
                     $footer_text = sprintf(
@@ -856,13 +858,13 @@ if ( ! class_exists( 'Woo_Wallet_Admin' ) ) {
             return $value;
         }
         /**
-         * Add screen id woowallet_page_woo-wallet-actions to WooCommerce
+         * Add TeraWallet screen ids to WooCommerce
          * @param array $screen_ids
          * @return array
          */
         public function woocommerce_screen_ids_callback( $screen_ids ) {
-            $screen_ids[] = 'woowallet_page_woo-wallet-actions';
-            $screen_ids[] = 'terawallet_page_woo-wallet-actions';
+            $woo_wallet_screen_id = sanitize_title( __( 'TeraWallet', 'woo-wallet' ) );
+            $screen_ids[] = "{$woo_wallet_screen_id}_page_woo-wallet-actions";
             return $screen_ids;
         }
         /**

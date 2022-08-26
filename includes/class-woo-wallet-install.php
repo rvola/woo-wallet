@@ -23,6 +23,9 @@ class Woo_Wallet_Install {
         ),
         '1.3.12' => array(
             'woo_wallet_update_1312_db_column'
+        ),
+        '1.3.21' => array(
+            'woo_wallet_update_1321_db_column'
         )
     );
     
@@ -71,8 +74,8 @@ class Woo_Wallet_Install {
             blog_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
             user_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             type varchar(200 ) NOT NULL,
-            amount DECIMAL( 10,2 ) NOT NULL,
-            balance DECIMAL( 10,2 ) NOT NULL,
+            amount DECIMAL( 16,8 ) NOT NULL,
+            balance DECIMAL( 16,8 ) NOT NULL,
             currency varchar(20 ) NOT NULL,
             details longtext NULL,
             created_by BIGINT UNSIGNED NOT NULL DEFAULT 1,
@@ -111,7 +114,7 @@ class Woo_Wallet_Install {
             'post_type' => 'product',
             'post_excerpt' => '',
             'post_content' => stripslashes(html_entity_decode( 'Auto generated product for wallet recharge please do not delete or update.', ENT_QUOTES, 'UTF-8' ) ),
-            'post_author' => 1
+            'post_author' => get_current_user_id()
         );
         $product_id = wp_insert_post( $product_args );
         if ( ! is_wp_error( $product_id ) ) {

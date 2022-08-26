@@ -54,8 +54,6 @@ if (!class_exists('Woo_Wallet_Frontend')) {
             add_action('woocommerce_review_order_after_order_total', array($this, 'woocommerce_review_order_after_order_total'));
             add_action('woocommerce_checkout_create_order_coupon_item', array($this, 'convert_coupon_to_cashbak_if'), 10, 4);
 
-            add_filter('woocommerce_coupon_is_valid', array($this, 'woo_wallet_is_valid_cashback_coupon'), 100, 2);
-            add_filter('woocommerce_coupon_error', array($this, 'cashback_coupon_error'), 100, 3);
             add_filter('woocommerce_coupon_message', array($this, 'update_woocommerce_coupon_message_as_cashback'), 10, 3);
             add_filter('woocommerce_cart_totals_coupon_label', array($this, 'change_coupon_label'), 10, 2);
             add_filter('woocommerce_cart_get_total', array($this, 'woocommerce_cart_get_total'));
@@ -69,8 +67,26 @@ if (!class_exists('Woo_Wallet_Frontend')) {
             add_filter('wp_nav_menu_objects', array($this, 'wp_nav_menu_objects'), 10);
             
             add_action('woocommerce_order_details_after_order_table', array($this, 'remove_woocommerce_order_again_button_for_wallet_rechargeable_order'), 5);
+            
+            add_action('woocommerce_cart_loaded_from_session', array($this, 'woocommerce_cart_loaded_from_session'));
         }
-        
+        /**
+        * Remove wallet rechargeable product from the cart
+        * if another product is added to the cart before.
+        * @param WC_Cart $cart
+        */
+        public function woocommerce_cart_loaded_from_session($cart){
+            if (sizeof($cart->get_cart()) > 1) {
+                foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+                    $product_id = $cart_item['variation_id'] ? $cart_item['variation_id'] : $cart_item['product_id'];
+                    if ($product_id === get_wallet_rechargeable_product()->get_id()) {
+                        WC()->cart->remove_cart_item($cart_item_key);
+                    }
+                }
+            }
+        }
+
+
         /**
          * Remove order again button for wallet rechargeable order.
          * @param WC_Order $order
@@ -93,7 +109,7 @@ if (!class_exists('Woo_Wallet_Frontend')) {
         /**
          * Add a new item to a menu
          * @param string $menu
-         * @param array $args
+         * @param object $args
          * @return string
          */
         public function add_wallet_nav_menu($menu, $args) {
@@ -214,6 +230,9 @@ if (!class_exists('Woo_Wallet_Frontend')) {
          * @return array
          */
         public function woo_wallet_menu_items($items) {
+            if(is_wallet_account_locked()){
+                return $items;
+            }
             unset($items['edit-account']);
             unset($items['customer-logout']);
             $items['woo-wallet'] = apply_filters('woo_wallet_account_menu_title', __('My Wallet', 'woo-wallet'));
@@ -249,7 +268,7 @@ if (!class_exists('Woo_Wallet_Frontend')) {
          */
         public function woo_wallet_frontend_loaded() {
             // reset partial payment session
-            if (!is_ajax()) {
+            if (!wp_doing_ajax()) {
                 update_wallet_partial_payment_session();
             }
             /**
@@ -606,6 +625,9 @@ if (!class_exists('Woo_Wallet_Frontend')) {
          */
         public function display_cashback() {
             $product = wc_get_product(get_the_ID());
+            if(!$product){
+                return;
+            }
             if($product->has_child()){
                 $product = wc_get_product(current($product->get_children()));
             }
@@ -617,45 +639,11 @@ if (!class_exists('Woo_Wallet_Frontend')) {
             }
             $cashback_amount = apply_filters('woo_wallet_product_cashback_amount', $cashback_amount, get_the_ID());
             if($cashback_amount){
-                echo '<span class="on-woo-wallet-cashback">' . wc_price($cashback_amount, woo_wallet_wc_price_args()) . __(' Cashback', 'woo-wallet') . '</span>';
+                $cashback_html = '<span class="on-woo-wallet-cashback">' . wc_price($cashback_amount, woo_wallet_wc_price_args()) . __(' Cashback', 'woo-wallet') . '</span>';
             } else{
-                echo '<span class="on-woo-wallet-cashback" style="display:none;"></span>';
+                $cashback_html = '<span class="on-woo-wallet-cashback" style="display:none;"></span>';
             }
-        }
-
-        /**
-         * Check if user logged in for cashback coupon.
-         * @param boolean $is_valid
-         * @param WC_Coupon $coupon
-         * @return boolean
-         */
-        public function woo_wallet_is_valid_cashback_coupon($is_valid, $coupon) {
-            $_is_coupon_cashback = get_post_meta($coupon->get_id(), '_is_coupon_cashback', true);
-            if ('yes' === $_is_coupon_cashback) {
-                if (!is_user_logged_in()) {
-                    $is_valid = false;
-                }
-            }
-            return $is_valid;
-        }
-        
-        /**
-         * Return invalid coupon message.
-         * @param string $error_message
-         * @param int $error_code
-         * @param WC_Coupon $coupon
-         * @return string
-         */
-        public function cashback_coupon_error($error_message, $error_code, $coupon){
-            if( is_a( $coupon, 'WC_Coupon' ) ){
-                $_is_coupon_cashback = get_post_meta($coupon->get_id(), '_is_coupon_cashback', true);
-                if ('yes' === $_is_coupon_cashback) {
-                    if (!is_user_logged_in()) {
-                        $error_message = __('Please login to apply cashback coupon.', 'woo-wallet');
-                    }
-                }
-            }
-            return $error_message;
+            echo apply_filters('woo_wallet_product_cashback_html', $cashback_html, get_the_ID());
         }
 
         /**
@@ -668,7 +656,7 @@ if (!class_exists('Woo_Wallet_Frontend')) {
         public function update_woocommerce_coupon_message_as_cashback($msg, $msg_code, $coupon) {
             $coupon_id = $coupon->get_id();
             $_is_coupon_cashback = get_post_meta($coupon_id, '_is_coupon_cashback', true);
-            if (is_user_logged_in() && 'yes' === $_is_coupon_cashback && 200 === $msg_code) {
+            if ( 'yes' === $_is_coupon_cashback && 200 === $msg_code) {
                 $msg = __('Coupon code applied successfully as cashback.', 'woo-wallet');
             }
             return $msg;
@@ -683,7 +671,7 @@ if (!class_exists('Woo_Wallet_Frontend')) {
         public function change_coupon_label($label, $coupon) {
             $coupon_id = $coupon->get_id();
             $_is_coupon_cashback = get_post_meta($coupon_id, '_is_coupon_cashback', true);
-            if (is_user_logged_in() && 'yes' === $_is_coupon_cashback) {
+            if ( 'yes' === $_is_coupon_cashback ) {
                 $label = sprintf(esc_html__('Cashback: %s', 'woo-wallet'), $coupon->get_code());
             }
             return $label;
@@ -695,9 +683,7 @@ if (!class_exists('Woo_Wallet_Frontend')) {
          * @return float
          */
         public function woocommerce_cart_get_total($total) {
-            if (is_user_logged_in()) {
-                $total += get_woowallet_coupon_cashback_amount();
-            }
+            $total += get_woowallet_coupon_cashback_amount();
             return $total;
         }
 
@@ -741,6 +727,8 @@ if (!class_exists('Woo_Wallet_Frontend')) {
                 echo '<div class="woocommerce">';
                 wc_get_template('myaccount/form-login.php');
                 echo '</div>';
+            } else if(is_wallet_account_locked()){
+                woo_wallet()->get_template('no-access.php');
             } else {
                 wp_enqueue_style('woo-wallet-payment-jquery-ui');
                 wp_enqueue_style('dashicons');
@@ -781,15 +769,17 @@ if (!class_exists('Woo_Wallet_Frontend')) {
          * Restore cart items after wallet top-up.
          * @param int $order_id
          */
-        public function restore_woocommerce_cart_items($order_id){
+        public function restore_woocommerce_cart_items(){
             $saved_cart = woo_wallet_get_saved_cart();
             if($saved_cart){
                 foreach ($saved_cart as $cart_item_key => $restore_item){
                     wc()->cart->cart_contents[ $cart_item_key ]         = $restore_item;
                     wc()->cart->cart_contents[ $cart_item_key ]['data'] = wc_get_product( $restore_item['variation_id'] ? $restore_item['variation_id'] : $restore_item['product_id'] );
+                    do_action( 'woocommerce_restore_cart_item', $cart_item_key, wc()->cart );
+                    
                     do_action( 'woocommerce_cart_item_restored', $cart_item_key, wc()->cart );
                 }
-                wc()->cart->calculate_totals();
+                
                 woo_wallet_persistent_cart_destroy();
             }
         }

@@ -6,11 +6,11 @@
  * Description: The leading wallet plugin for WooCommerce with partial payment, refunds, cashbacks and what not!
  * Author: WCBeginner
  * Author URI: https://wcbeginner.com/
- * Version: 1.3.19
+ * Version: 1.3.24
  * Requires at least: 4.4
- * Tested up to: 5.7
+ * Tested up to: 5.9
  * WC requires at least: 3.0
- * WC tested up to: 5.4
+ * WC tested up to: 6.3
  * 
  * GitHub Plugin URI: https://github.com/rvola/woo-wallet
  * Update URI: https://github.com/rvola/woo-wallet
@@ -49,7 +49,12 @@ if ( ! class_exists( 'Woo_Wallet_Dependencies' ) ){
 if ( ! class_exists( 'WooWallet' ) ) {
     include_once dirname( __FILE__) . '/includes/class-woo-wallet.php';
 }
-
+/**
+ * Returns the main instance of WooWallet.
+ *
+ * @since  1.1.0
+ * @return WooWallet
+ */
 function woo_wallet(){
     return WooWallet::instance();
 }

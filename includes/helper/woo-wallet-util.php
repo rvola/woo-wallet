@@ -51,13 +51,11 @@ if( !function_exists( 'get_woowallet_coupon_cashback_amount' ) ){
      */
     function get_woowallet_coupon_cashback_amount(){
         $coupon_cashback_amount = 0;
-        if ( is_user_logged_in() ) {
-            foreach (WC()->cart->get_applied_coupons() as $code) {
-                $coupon = new WC_Coupon( $code);
-                $_is_coupon_cashback = get_post_meta( $coupon->get_id(), '_is_coupon_cashback', true );
-                if ( 'yes' === $_is_coupon_cashback) {
-                    $coupon_cashback_amount += WC()->cart->get_coupon_discount_amount( $code, WC()->cart->display_cart_ex_tax);
-                }
+        foreach (WC()->cart->get_applied_coupons() as $code) {
+            $coupon = new WC_Coupon( $code);
+            $_is_coupon_cashback = get_post_meta( $coupon->get_id(), '_is_coupon_cashback', true );
+            if ( 'yes' === $_is_coupon_cashback) {
+                $coupon_cashback_amount += WC()->cart->get_coupon_discount_amount( $code, WC()->cart->display_cart_ex_tax);
             }
         }
         return $coupon_cashback_amount;
@@ -68,7 +66,7 @@ if( !function_exists( 'get_woowallet_coupon_cashback_amount' ) ){
 if(!function_exists('get_woo_wallet_cart_fee_total')){
     /**
      * Get total fee amount from cart.
-     * @return number
+     * @return float
      */
     function get_woo_wallet_cart_fee_total(){
         $fee_amount = 0;
@@ -300,6 +298,7 @@ if ( ! function_exists( 'get_wallet_transactions' ) ) {
             'join_type'  => 'INNER',
             'limit'      => '',
             'include_deleted' => false,
+            'fields' => 'all', // Support all | all_with_meta
             'nocache'    => is_multisite() ? true : false
         );
         $args = apply_filters( 'woo_wallet_transactions_query_args', $args );
@@ -311,7 +310,7 @@ if ( ! function_exists( 'get_wallet_transactions' ) ) {
         // Joins
         $joins = array();
         if ( ! empty( $where_meta ) ) {
-            $joins["order_items"] = "{$join_type} JOIN {$wpdb->base_prefix}woo_wallet_transaction_meta AS transaction_meta ON transactions.transaction_id = transaction_meta.transaction_id";
+            $joins["transaction_meta"] = "{$join_type} JOIN {$wpdb->base_prefix}woo_wallet_transaction_meta AS transaction_meta ON transactions.transaction_id = transaction_meta.transaction_id";
         }
         $query['join'] = implode( ' ', $joins );
 
@@ -365,7 +364,14 @@ if ( ! function_exists( 'get_wallet_transactions' ) ) {
         if ( $nocache || ! isset( $cached_results[$query_hash] ) ) {
             // Enable big selects for reports
             $wpdb->query( 'SET SESSION SQL_BIG_SELECTS=1' );
-            $cached_results[$query_hash] = $wpdb->get_results( $query );
+            $query_resualts = $wpdb->get_results( $query );
+            if('all_with_meta' === $fields){
+                foreach ($query_resualts as $key => $query_resualt){
+                    $meta_sql = $wpdb->prepare( "SELECT transaction_meta.meta_key, transaction_meta.meta_value FROM {$wpdb->base_prefix}woo_wallet_transaction_meta AS transaction_meta WHERE transaction_id = %d", $query_resualt->transaction_id );
+                    $query_resualts[$key]->meta = $wpdb->get_results( $meta_sql );
+                }
+            }
+            $cached_results[$query_hash] = $query_resualts;
             set_transient( "woo_wallet_transaction_resualts_{$user_id}", $cached_results, DAY_IN_SECONDS );
         }
 
@@ -667,6 +673,6 @@ if(!function_exists('is_wallet_account_locked')){
         if(empty($user_id)){
             $user_id = get_current_user_id();
         }
-        return get_user_meta($user_id, '_is_wallet_locked', true);
+        return apply_filters('woo_wallet_is_user_wallet_locked', get_user_meta($user_id, '_is_wallet_locked', true), $user_id);
     }
 }

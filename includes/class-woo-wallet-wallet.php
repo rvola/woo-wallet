@@ -69,9 +69,9 @@ if ( ! class_exists( 'Woo_Wallet_Wallet' ) ) {
          * @param string $details
          * @return int transaction id
          */
-        public function credit( $user_id = '', $amount = 0, $details = '' ) {
+        public function credit( $user_id = '', $amount = 0, $details = '', $args = null ) {
             $this->set_user_id( $user_id );
-            return $this->recode_transaction( $amount, 'credit', $details );
+            return $this->recode_transaction( $amount, 'credit', $details, $args );
         }
 
         /**
@@ -81,9 +81,9 @@ if ( ! class_exists( 'Woo_Wallet_Wallet' ) ) {
          * @param string $details
          * @return int transaction id
          */
-        public function debit( $user_id = '', $amount = 0, $details = '' ) {
+        public function debit( $user_id = '', $amount = 0, $details = '', $args = null ) {
             $this->set_user_id( $user_id );
-            return $this->recode_transaction( $amount, 'debit', $details );
+            return $this->recode_transaction( $amount, 'debit', $details, $args );
         }
 
         /**
@@ -124,7 +124,7 @@ if ( ! class_exists( 'Woo_Wallet_Wallet' ) ) {
         public function wallet_cashback( $order_id ) {
             $order = wc_get_order( $order_id );
             /* General Cashback */
-            if ( apply_filters( 'process_woo_wallet_general_cashback', !get_post_meta( $order->get_id(), '_general_cashback_transaction_id', true ), $order ) && woo_wallet()->cashback->calculate_cashback(false, $order->get_id()) ) {
+            if ( apply_filters( 'process_woo_wallet_general_cashback', !get_post_meta( $order->get_id(), '_general_cashback_transaction_id', true ) && $order->get_customer_id(), $order ) && woo_wallet()->cashback->calculate_cashback(false, $order->get_id()) ) {
                 $transaction_id = $this->credit( $order->get_customer_id(), woo_wallet()->cashback->calculate_cashback(false, $order->get_id()), __( 'Wallet credit through cashback #', 'woo-wallet' ) . $order->get_order_number() );
                 if ( $transaction_id ) {
                     update_wallet_transaction_meta( $transaction_id, '_type', 'cashback', $order->get_customer_id() );
@@ -133,7 +133,7 @@ if ( ! class_exists( 'Woo_Wallet_Wallet' ) ) {
                 }
             }
             /* Coupon Cashback */
-            if ( apply_filters( 'process_woo_wallet_coupon_cashback', !get_post_meta( $order->get_id(), '_coupon_cashback_transaction_id', true ), $order ) && get_post_meta( $order->get_id(), '_coupon_cashback_amount', true ) ) {
+            if ( apply_filters( 'process_woo_wallet_coupon_cashback', !get_post_meta( $order->get_id(), '_coupon_cashback_transaction_id', true ) && $order->get_customer_id(), $order ) && get_post_meta( $order->get_id(), '_coupon_cashback_amount', true ) ) {
                 $coupon_cashback_amount = apply_filters( 'woo_wallet_coupon_cashback_amount', get_post_meta( $order->get_id(), '_coupon_cashback_amount', true ), $order );
                 if ( $coupon_cashback_amount ) {
                     $transaction_id = $this->credit( $order->get_customer_id(), $coupon_cashback_amount, __( 'Wallet credit through cashback by applying coupon', 'woo-wallet' ) );
@@ -191,10 +191,14 @@ if ( ! class_exists( 'Woo_Wallet_Wallet' ) ) {
          * @param string $details
          * @return boolean | transaction id
          */
-        private function recode_transaction( $amount, $type, $details ) {
+        private function recode_transaction( $amount, $type, $details, $args = null ) {
             global $wpdb;
+
             if(!$this->user_id){
-                return;
+                return false;
+            }
+            if(is_wallet_account_locked($this->user_id)){
+                return false;
             }
             if ( $amount < 0 ) {
                 $amount = 0;
@@ -208,7 +212,21 @@ if ( ! class_exists( 'Woo_Wallet_Wallet' ) ) {
             } else if ( $type == 'debit' ) {
                 $balance -= $amount;
             }
-            if ( $wpdb->insert( "{$wpdb->base_prefix}woo_wallet_transactions", apply_filters( 'woo_wallet_transactions_args', array( 'blog_id' => $GLOBALS['blog_id'], 'user_id' => $this->user_id, 'type' => $type, 'amount' => $amount, 'balance' => $balance, 'currency' => get_woocommerce_currency(), 'details' => $details, 'date' => current_time('mysql'), 'created_by' => get_current_user_id() ), array( '%d', '%d', '%s', '%f', '%f', '%s', '%s', '%s', '%d' ) ) ) ) {
+            $defaults = array(
+                'blog_id'    => $GLOBALS['blog_id'],
+                'user_id'    => $this->user_id,
+                'type'       => $type,
+                'amount'     => $amount,
+                'balance'    => $balance,
+                'currency'   => get_woocommerce_currency(),
+                'details'    => $details,
+                'date'       => current_time('mysql'),
+                'created_by' => get_current_user_id(),
+            );
+
+            $parsed_args = wp_parse_args( $args, $defaults );
+
+            if ( $wpdb->insert( "{$wpdb->base_prefix}woo_wallet_transactions", apply_filters( 'woo_wallet_transactions_args', array( 'blog_id' => $parsed_args['blog_id'], 'user_id' => $parsed_args['user_id'], 'type' => $parsed_args['type'], 'amount' => $parsed_args['amount'], 'balance' => $parsed_args['balance'], 'currency' => $parsed_args['currency'], 'details' => $parsed_args['details'], 'date' => $parsed_args['date'], 'created_by' => $parsed_args['created_by'] ), array( '%d', '%d', '%s', '%f', '%f', '%s', '%s', '%s', '%d' ) ) ) ) {
                 $transaction_id = $wpdb->insert_id;
                 update_user_meta($this->user_id, $this->meta_key, $balance);
                 clear_woo_wallet_cache( $this->user_id );

@@ -170,7 +170,7 @@ if (!class_exists('Woo_Wallet_Ajax')) {
                 $order->add_order_note(sprintf(__('%s refunded to customer wallet', 'woo-wallet'), wc_price($partial_payment_amount, woo_wallet_wc_price_args($order->get_customer_id()))));
                 update_post_meta($order_id, '_woo_wallet_partial_payment_refunded', true);
                 update_post_meta($order_id, '_partial_payment_refund_id', $transaction_id);
-                add_action('woo_wallet_partial_order_refunded', $order_id, $transaction_id);
+                do_action('woo_wallet_partial_order_refunded', $order_id, $transaction_id);
             }
             wp_send_json($response);
         }
@@ -230,7 +230,7 @@ if (!class_exists('Woo_Wallet_Ajax')) {
                     'restock_items' => $restock_refunded_items,
                         ));
                 if (!is_wp_error($refund)) {
-                    $transaction_id = woo_wallet()->wallet->credit($order->get_customer_id(), $refund_amount, __('Wallet refund #', 'woo-wallet') . $order->get_order_number());
+                    $transaction_id = woo_wallet()->wallet->credit($order->get_customer_id(), $refund_amount, $refund_reason);
                     if (!$transaction_id) {
                         throw new Exception(__('Refund not credited to customer', 'woo-wallet'));
                     } else {
